@@ -891,12 +891,12 @@ body { font-family:'Sora',sans-serif; background:var(--bg); color:var(--text); m
             <span class="field-hint">This appears on the referral letter so you can post it to the GP</span>
           </div>
         </div>
-        <div class="form-row" style="align-items:flex-start">
+        <div class="form-row" style="align-items:flex-end">
           <div class="form-group"><label>Password *</label><input type="text" id="gp-pass" placeholder="e.g. sehat2026" autocomplete="off"><span class="field-hint">Auto-printed on credential sheet</span></div>
-          <div class="form-group">
-            <label style="visibility:hidden;user-select:none">&#8203;</label>
+          <div class="form-group" style="padding-bottom:20px">
             <button onclick="addGP()" style="
-              padding:11px 16px;
+              height:44px;
+              padding:0 20px;
               background:var(--blue);
               color:white;
               border:none;
@@ -909,6 +909,7 @@ body { font-family:'Sora',sans-serif; background:var(--bg); color:var(--text); m
               box-shadow:0 2px 8px rgba(0,105,192,0.25);
               transition:all var(--transition);
               width:100%;
+              white-space:nowrap;
             ">+ Add Clinic</button>
           </div>
         </div>
