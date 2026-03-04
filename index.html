@@ -1462,23 +1462,28 @@ const ALL_DX  = [
 function box(t) { return `<span class="pl-box${t?' t':''}"></span>`; }
 function cb(t, lbl) { return `<span class="pl-cb">${box(t)} ${lbl}</span>`; }
 
-function generateQRImageURL(text) {
-  // Use QR Server API — reliable, no JS library needed, works offline after first load
+async function generateQRBase64(text) {
+  // Fetch QR from api.qrserver.com and convert to base64 so it embeds into the printed letter
   const encoded = encodeURIComponent(text);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}&margin=4`;
+  const url = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encoded}&margin=4&format=png`;
+  try {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch(e) {
+    console.warn('QR fetch failed:', e);
+    // Fallback: return the URL directly (may not print but at least shows on screen)
+    return url;
+  }
 }
 
 
 function cb(t, lbl) { return `<span class="pl-cb">${box(t)} ${lbl}</span>`; }
-
-function cb(t, lbl) { return `<span class="pl-cb">${box(t)} ${lbl}</span>`; }
-
-function generateQRImageURL(text) {
-  // Use QR Server API — reliable, no JS library needed, works offline after first load
-  const encoded = encodeURIComponent(text);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}&margin=4`;
-}
-
 
 function cb(t, lbl) { return `<span class="pl-cb">${box(t)} ${lbl}</span>`; }
 
@@ -1497,7 +1502,7 @@ async function buildLetterHTML(e, gp) {
   const othInv  = inv.filter(i=>!ALL_INV.includes(i));
   const othDx   = dx.filter(d=>!ALL_DX.includes(d));
 
-  const qrImageURL = generateQRImageURL(`https://${PORTAL_URL}`);
+  const qrImageURL = await generateQRBase64(`https://${PORTAL_URL}`);
 
   return `
 <div class="pl-letter">
