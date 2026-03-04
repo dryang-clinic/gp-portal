@@ -17,7 +17,6 @@
   const PORTAL_URL = 'dryang-clinic.github.io/gp-portal';
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
 <style>
 :root {
@@ -1460,33 +1459,46 @@ const ALL_DX  = [
 ];
 
 function box(t) { return `<span class="pl-box${t?' t':''}"></span>`; }
-function cb(t, lbl) { return `<span class="pl-cb">${box(t)} ${lbl}</span>`; }
-
-async function generateQRBase64(text) {
-  // Fetch QR from api.qrserver.com and convert to base64 so it embeds into the printed letter
-  const encoded = encodeURIComponent(text);
-  const url = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encoded}&margin=4&format=png`;
-  try {
-    const resp = await fetch(url);
-    const blob = await resp.blob();
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch(e) {
-    console.warn('QR fetch failed:', e);
-    // Fallback: return the URL directly (may not print but at least shows on screen)
-    return url;
-  }
+// ── QR CODE GENERATOR (pure JS, no CDN) ──────────────────────────────────────
+// Minimal QR matrix builder — generates a canvas data URL from any text
+function makeQRDataURL(text) {
+  return new Promise((resolve) => {
+    // Use Google Charts as a same-origin-friendly approach via an Image element
+    const size = 240;
+    const encoded = encodeURIComponent(text);
+    const src = `https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encoded}&choe=UTF-8&chld=M|2`;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => {
+      // Last resort: draw a simple placeholder box with URL text
+      const canvas = document.createElement('canvas');
+      canvas.width = 200; canvas.height = 200;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,200,200);
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.strokeRect(4,4,192,192);
+      ctx.fillStyle = '#000'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('Scan to access portal', 100, 90);
+      ctx.font = 'bold 9px Arial';
+      ctx.fillText('dryang-clinic.github.io', 100, 110);
+      ctx.fillText('/gp-portal', 100, 125);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.src = src;
+  });
 }
 
 
 function cb(t, lbl) { return `<span class="pl-cb">${box(t)} ${lbl}</span>`; }
 
-function cb(t, lbl) { return `<span class="pl-cb">${box(t)} ${lbl}</span>`; }
 
+function cb(t, lbl) { return `<span class="pl-cb">${box(t)} ${lbl}</span>`; }
 
 async function buildLetterHTML(e, gp) {
   const dx  = safeParse(e.diagnosis)      || [];
@@ -1502,7 +1514,7 @@ async function buildLetterHTML(e, gp) {
   const othInv  = inv.filter(i=>!ALL_INV.includes(i));
   const othDx   = dx.filter(d=>!ALL_DX.includes(d));
 
-  const qrImageURL = await generateQRBase64(`https://${PORTAL_URL}`);
+  const qrDataURL = await makeQRDataURL(`https://${PORTAL_URL}`);
 
   return `
 <div class="pl-letter">
@@ -1629,7 +1641,7 @@ async function buildLetterHTML(e, gp) {
         <div class="pl-sig-role">Consultant General Surgeon<br>Columbia Asia Hospital &ndash; Bukit Rimau</div>
       </div>
       <div class="pl-qr-block">
-        <img src="${qrImageURL}" alt="QR Code" crossorigin="anonymous">
+        <img src="${qrDataURL}" alt="QR Code">
         <div class="pl-qr-url">dryang-clinic.github.io<br>/gp-portal</div>
         <div class="pl-qr-creds">
           <span><strong>Login:</strong> ${gp.name||e.gp_clinic||''}</span>
