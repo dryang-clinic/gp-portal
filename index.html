@@ -17,7 +17,7 @@
   const PORTAL_URL = 'dryang-clinic.github.io/gp-portal';
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
 <style>
 :root {
@@ -1483,30 +1483,50 @@ function box(t) { return `<span class="pl-box${t?' t':''}"></span>`; }
 // Minimal QR matrix builder — generates a canvas data URL from any text
 function makeQRDataURL(text) {
   return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    // Use qrcode.js library (loaded from CDN) - works fully offline/print
-    if (typeof QRCode !== 'undefined') {
-      QRCode.toCanvas(canvas, text, { width: 240, margin: 1, color: { dark: '#000000', light: '#ffffff' } }, (err) => {
-        if (err) {
-          // fallback placeholder
-          canvas.width = 240; canvas.height = 240;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#fff'; ctx.fillRect(0,0,240,240);
-          ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(3,3,234,234);
-          ctx.fillStyle = '#555'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
-          ctx.fillText('QR Code', 120, 115);
-          ctx.fillText(text, 120, 132);
+    try {
+      // qrcode-generator library: creates QR as table or SVG/canvas
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+
+      const moduleCount = qr.getModuleCount();
+      const cellSize = Math.floor(240 / (moduleCount + 2));
+      const size = cellSize * (moduleCount + 2);
+      const margin = cellSize;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // White background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+
+      // Draw modules
+      ctx.fillStyle = '#000000';
+      for (let row = 0; row < moduleCount; row++) {
+        for (let col = 0; col < moduleCount; col++) {
+          if (qr.isDark(row, col)) {
+            ctx.fillRect(
+              margin + col * cellSize,
+              margin + row * cellSize,
+              cellSize,
+              cellSize
+            );
+          }
         }
-        resolve(canvas.toDataURL('image/png'));
-      });
-    } else {
-      // Library not loaded yet — draw placeholder
+      }
+      resolve(canvas.toDataURL('image/png'));
+    } catch(e) {
+      // Fallback: blank square with text
+      const canvas = document.createElement('canvas');
       canvas.width = 240; canvas.height = 240;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#fff'; ctx.fillRect(0,0,240,240);
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(3,3,234,234);
-      ctx.fillStyle = '#555'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
-      ctx.fillText('QR Code', 120, 115);
+      ctx.strokeStyle = '#ccc'; ctx.lineWidth = 2; ctx.strokeRect(2,2,236,236);
+      ctx.fillStyle = '#999'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('QR unavailable', 120, 120);
       resolve(canvas.toDataURL('image/png'));
     }
   });
