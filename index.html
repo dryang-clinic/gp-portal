@@ -17,6 +17,7 @@
   const PORTAL_URL = 'dryang-clinic.github.io/gp-portal';
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
 <style>
 :root {
@@ -891,9 +892,10 @@ body { font-family:'Sora',sans-serif; background:var(--bg); color:var(--text); m
             <span class="field-hint">This appears on the referral letter so you can post it to the GP</span>
           </div>
         </div>
-        <div class="form-row" style="align-items:flex-end">
+        <div class="form-row">
           <div class="form-group"><label>Password *</label><input type="text" id="gp-pass" placeholder="e.g. sehat2026" autocomplete="off"><span class="field-hint">Auto-printed on credential sheet</span></div>
-          <div class="form-group" style="padding-bottom:20px">
+          <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-start">
+            <label style="visibility:hidden;font-size:11px;font-weight:600;letter-spacing:0.5px;margin-bottom:6px;display:block">&#8203;</label>
             <button onclick="addGP()" style="
               height:44px;
               padding:0 20px;
@@ -1481,34 +1483,32 @@ function box(t) { return `<span class="pl-box${t?' t':''}"></span>`; }
 // Minimal QR matrix builder — generates a canvas data URL from any text
 function makeQRDataURL(text) {
   return new Promise((resolve) => {
-    // Use Google Charts as a same-origin-friendly approach via an Image element
-    const size = 240;
-    const encoded = encodeURIComponent(text);
-    const src = `https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encoded}&choe=UTF-8&chld=M|2`;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = size; canvas.height = size;
+    const canvas = document.createElement('canvas');
+    // Use qrcode.js library (loaded from CDN) - works fully offline/print
+    if (typeof QRCode !== 'undefined') {
+      QRCode.toCanvas(canvas, text, { width: 240, margin: 1, color: { dark: '#000000', light: '#ffffff' } }, (err) => {
+        if (err) {
+          // fallback placeholder
+          canvas.width = 240; canvas.height = 240;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0,0,240,240);
+          ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(3,3,234,234);
+          ctx.fillStyle = '#555'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
+          ctx.fillText('QR Code', 120, 115);
+          ctx.fillText(text, 120, 132);
+        }
+        resolve(canvas.toDataURL('image/png'));
+      });
+    } else {
+      // Library not loaded yet — draw placeholder
+      canvas.width = 240; canvas.height = 240;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
+      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,240,240);
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(3,3,234,234);
+      ctx.fillStyle = '#555'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('QR Code', 120, 115);
       resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = () => {
-      // Last resort: draw a simple placeholder box with URL text
-      const canvas = document.createElement('canvas');
-      canvas.width = 200; canvas.height = 200;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,200,200);
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.strokeRect(4,4,192,192);
-      ctx.fillStyle = '#000'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
-      ctx.fillText('Scan to access portal', 100, 90);
-      ctx.font = 'bold 9px Arial';
-      ctx.fillText('dryang-clinic.github.io', 100, 110);
-      ctx.fillText('/gp-portal', 100, 125);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.src = src;
+    }
   });
 }
 
